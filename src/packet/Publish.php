@@ -97,7 +97,7 @@ class Publish extends ControlPacket
             
             $idintifier = substr(
                 $this->rawData,
-                4 + strlen($this->topic),
+                2 + strlen($this->topic) + $this->offset,
                 $idlen
             );
 
