@@ -16,6 +16,7 @@ use oliverlorenz\reactphpmqtt\packet\Factory;
 use oliverlorenz\reactphpmqtt\packet\MessageHelper;
 use oliverlorenz\reactphpmqtt\packet\PingRequest;
 use oliverlorenz\reactphpmqtt\packet\Publish;
+use oliverlorenz\reactphpmqtt\packet\PublishAck;
 use oliverlorenz\reactphpmqtt\packet\Subscribe;
 use oliverlorenz\reactphpmqtt\packet\SubscribeAck;
 use oliverlorenz\reactphpmqtt\packet\Unsubscribe;
@@ -35,37 +36,41 @@ class MqttClient
     /**
      * @var $loop Loop
      */
+    private $url;
     private $loop;
     private $socketConnector;
     private $version;
+    private $options;
 
     private $messageCounter = 1;
 
-    public function __construct(Loop $loop, ReactConnector $connector, Version $version)
+    public function __construct(string $url, Loop $loop, ReactConnector $connector, Version $version, array $options)
     {
+        $this->url = $url;
         $this->version = $version;
         $this->socketConnector = $connector;
         $this->loop = $loop;
+
+        if(!$options) {
+            $this->options = $this->getDefaultConnectionOptions();
+        }
+        else {
+            $this->options = new ConnectionOptions($options);
+        }
     }
 
     /**
      * Creates a new connection
      *
-     * @param string $uri
-     * @param ConnectionOptions|null $options [optional]
      *
      * @return PromiseInterface Resolves to a \React\Stream\Stream once a connection has been established
      */
-    public function connect(
-        $uri,
-        ConnectionOptions $options = null
-    ) {
+    public function connect() 
+    {
         // Set default connection options, if none provided
-        if($options == null) {
-            $options = $this->getDefaultConnectionOptions();
-        }
+        $options = $this->options;
 
-        $promise = $this->socketConnector->connect($uri);
+        $promise = $this->socketConnector->connect($this->url);
         $promise->then(function(Connection $stream) {
             $this->listenForPackets($stream);
         });
@@ -84,8 +89,14 @@ class MqttClient
         $stream->on('data', function($rawData) use ($stream) {
             try {
                 foreach (Factory::getNextPacket($this->version, $rawData) as $packet) {
-                    $stream->emit($packet::EVENT, [$packet]);
-                    echo "received:\t" . get_class($packet) . PHP_EOL;
+                    //echo "received:\t" . get_class($packet) . PHP_EOL;
+                    $event = $packet::EVENT;
+                    if (method_exists($packet, 'getTopic')) {
+                        $topic = $packet->getTopic();
+                        $event .= ":$topic";
+                    }
+                    //echo $event."\n";
+                    $stream->emit($event, [$packet]);
                 }
             }
             catch (ProtocolViolation $e) {
@@ -93,13 +104,6 @@ class MqttClient
                 $stream->emit('INVALID', [$e]);
             }
         });
-//
-//        $deferred = new Deferred();
-//        $stream->on(ConnectionAck::EVENT, function($message) use ($stream, $deferred) {
-//            $deferred->resolve($stream);
-//        });
-//
-//        return $deferred->promise();
     }
 
     private function keepAlive(Connection $stream, $keepAlive)
@@ -120,42 +124,24 @@ class MqttClient
      * @return \React\Promise\Promise
      */
     public function sendConnectPacket(Connection $stream, ConnectionOptions $options) {
-        $packet = new Connect(
-            $this->version,
-            $options->username,
-            $options->password,
-            $options->clientId,
-            $options->cleanSession,
-            $options->willTopic,
-            $options->willMessage,
-            $options->willQos,
-            $options->willRetain,
-            $options->keepAlive
-        );
-        $message = $packet->get();
-        echo MessageHelper::getReadableByRawString($message);
+        $packet = new Connect($this->version, $options);
+        //$message = $packet->get();
+        //echo MessageHelper::getReadableByRawString($message);
 
         $deferred = new Deferred();
         $stream->on(ConnectionAck::EVENT, function($message) use ($stream, $deferred) {
             $deferred->resolve($stream);
         });
 
-        $stream->write($message);
-//        $deferred = new Deferred();
-//        if ($stream->write($message)) {
-//            $deferred->resolve($stream);
-//        } else {
-//            $deferred->reject();
-//        }
+        $this->sendPacketToStream($stream, $packet);
 
         return $deferred->promise();
     }
 
     private function sendPacketToStream(Connection $stream, ControlPacket $controlPacket)
     {
-        echo "send:\t\t" . get_class($controlPacket) . "\n";
+        //echo "send:\t\t" . get_class($controlPacket) . "\n";
         $message = $controlPacket->get();
-
         return $stream->write($message);
     }
 

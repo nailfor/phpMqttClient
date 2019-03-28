@@ -1,28 +1,42 @@
 <?php
 
 use oliverlorenz\reactphpmqtt\ClientFactory;
-use oliverlorenz\reactphpmqtt\packet\Publish;
-use oliverlorenz\reactphpmqtt\protocol\Version4;
-use React\Socket\ConnectionInterface as Stream;
 
-require __DIR__ . '/../vendor/autoload.php';
+class MQTTClass 
+{
+    public static function message($packet)
+    {
+        $id = $packet->getMessageId();
+        $payload = $packet->getPayload();
+    }
 
-$config = require 'config.php';
+    public static function error($reason) {
+        echo $reason->getMessage(). PHP_EOL;
+        exit;
+    }
 
-$client = ClientFactory::createClient(new Version4(), '8.8.8.8');
+    public static function subscribe()
+    {
+        $url    = '127.0.0.1:1883';
 
-$p = $client->connect($config['broker'], $config['options']);
-$p->then(function(Stream $stream) use ($client) {
-    $stream->on(Publish::EVENT, function(Publish $message) {
-        printf(
-            'Received payload "%s" for topic "%s"%s',
-            $message->getPayload(),
-            $message->getTopic(),
-            PHP_EOL
-        );
-    });
+        $options = [
+            //'username'  => '',
+            //'password'  => '',
+            'clientId'  => 'php',
+            'cleanSession' => false,
 
-    $client->subscribe($stream, 'hello/world', 0);
-});
+            'topics'    => [
+                'topic_name' => [
+                    //this flag clear message after reciev. Default true
+                    //'clear'     => false,
+                    'qos'       => 1,
+                    'events'    => [
+                        'PUBLISH' => [static::class, 'message'],
+                    ],
+                ],
+            ],        
+        ];
 
-$client->getLoop()->run();
+        ClientFactory::run($url, $options, [static::class, 'error']);
+    }
+}

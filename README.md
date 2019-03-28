@@ -30,21 +30,59 @@ $connector->getLoop()->run();
 ## Example subscribe
 
 ```php
-$config = require 'config.php';
 
-$connector = ClientFactory::createClient(new Version4());
+use oliverlorenz\reactphpmqtt\ClientFactory;
 
-$p = $connector->create($config['server'], $config['port'], $config['options']);
-$p->then(function(\React\Stream\Stream $stream) use ($connector) {
-    $stream->on(Publish::EVENT, function(Publish $message) {
-        print_r($message);
-    });
-    
-    $connector->subscribe($stream, 'a/b', 0);
-    $connector->subscribe($stream, 'a/c', 0);
-});
+class MQTTClass 
+{
+    public static function topic($packet)
+    {
+        $id = $packet->getMessageId();
+        $payload = $packet->getPayload();
+    }
 
-$connector->getLoop()->run();
+    public static function capital($packet)
+    {
+        $id = $packet->getMessageId();
+        $payload = $packet->getPayload();
+    }
+
+    public static function error($reason) {
+        echo $reason->getMessage(). PHP_EOL;
+        exit;
+    }
+
+    public static function subscribe()
+    {
+        $url    = '127.0.0.1:1883';
+
+        $options = [
+            //'username'  => '',
+            //'password'  => '',
+            'clientId'  => 'php',
+            'cleanSession' => false,
+
+            'topics'    => [
+                'topic_name' => [
+                    //this flag clear message after reciev. Default true
+                    //'clear'     => false,
+                    'qos'       => 1,
+                    'events'    => [
+                        'PUBLISH' => [static::class, 'topic'],
+                    ],
+                ],
+                'capital_name' => [
+                    'qos'       => 0,
+                    'events'    => [
+                        'PUBLISH' => [static::class, 'capital'],
+                    ],
+                ],
+            ],        
+        ];
+
+        ClientFactory::run($url, $options, [static::class, 'error']);
+    }
+}
 ```
 
 ## Notice - (May 12th, 2015)

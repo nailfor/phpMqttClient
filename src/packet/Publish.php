@@ -26,39 +26,89 @@ class Publish extends ControlPacket
     protected $dup = false;
 
     protected $retain = false;
+    
+    protected $offset;
 
     public static function getControlPacketType()
     {
         return ControlPacketType::PUBLISH;
     }
 
-    public static function parse(Version $version, $rawInput)
+    public function parse()
     {
-        /** @var Publish $packet */
-        $packet = parent::parse($version, $rawInput);
-
-        //TODO 3.3.2.2 Packet Identifier not yet supported
-        $topic = static::getPayloadLengthPrefixFieldInRawInput(2, $rawInput);
-        $packet->setTopic($topic);
-
-        $byte1 = $rawInput{0};
+        $this->parseOffset();
+        
+        $byte1 = $this->rawData{0};
         if (!empty($byte1)) {
-            $packet->setRetain(($byte1 & 1) === 1);
+            $byte1 = ord($byte1);
+            $this->setRetain(($byte1 & 1) === 1);
             if (($byte1 & 2) === 2) {
-                $packet->setQos(1);
+                $this->setQos(1);
             } elseif (($byte1 & 4) === 4) {
-                $packet->setQos(2);
+                $this->setQos(2);
             }
-            $packet->setDup(($byte1 & 8) === 8);
+            $this->setDup(($byte1 & 8) === 8);
         }
-        $packet->payload = substr(
-            $rawInput,
-            4 + strlen($topic)
-        );
-
-        return $packet;
+        
+        $this->parseTopic();
+        $this->parsePayload();
+        return $this;
     }
 
+    protected function parseOffset()
+    {
+        $offset = 1;
+        do {
+            $encodedByte = ord($this->rawData{$offset});
+            $offset++;
+        }while(($encodedByte & 0x80) != 0);
+        $this->offset = $offset;
+    }    
+    
+    protected function getInteger(string $data) : int
+    {
+        if (isset($data{1})) {
+            $m = ord($data{0})<<8;
+            $l = ord($data{1});
+            return $m + $l;
+        }
+        return 0;
+    }
+    
+    /**
+     * @param string $rawInput
+     * @return string
+     */
+    protected function parseTopic()
+    {
+        
+        $headerLength = 2;
+        $header = substr($this->rawData, $this->offset, $headerLength);
+        $topicLength = $this->getInteger($header);
+        
+        $this->topic = substr($this->rawData, $this->offset + $headerLength, $topicLength);
+    }    
+    
+    protected function parsePayload() 
+    {
+        $idlen = 0;
+        if ($this->qos) {
+            $idlen = 2;
+            
+            $idintifier = substr(
+                $this->rawData,
+                4 + strlen($this->topic),
+                $idlen
+            );
+
+            $this->messageId =  $this->getInteger($idintifier);
+        } 
+        $this->payload = substr(
+            $this->rawData,
+            2 + strlen($this->topic) + $idlen + $this->offset
+        );        
+    }    
+    
     /**
      * @param $topic
      * @return $this
@@ -79,6 +129,15 @@ class Publish extends ControlPacket
         return $this;
     }
 
+    /**
+     * @return $messageId
+     */
+    public function getMessageId()
+    {
+        return $this->messageId;
+    }
+    
+    
     /**
      * @param int $qos 0,1,2
      * @return $this

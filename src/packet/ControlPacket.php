@@ -17,10 +17,17 @@ abstract class ControlPacket {
     protected $payload = '';
 
     protected $identifier;
+    
+    public $rawData = '';
 
     public function __construct(Version $version)
     {
         $this->version = $version;
+    }
+
+    public function parse()
+    {
+        return $this;
     }
 
     /**
@@ -28,11 +35,14 @@ abstract class ControlPacket {
      * @param string $rawInput
      * @return static
      */
-    public static function parse(Version $version, $rawInput)
+    public static function parsePacket(Version $version, $rawInput)
     {
         static::checkRawInputValidControlPackageType($rawInput);
-
-        return new static($version);
+        
+        $packet = new static($version);
+        $packet->rawData = $rawInput;
+        $packet->parse();
+        return $packet;
     }
 
     protected static function checkRawInputValidControlPackageType($rawInput)
@@ -129,19 +139,5 @@ abstract class ControlPacket {
     protected function addReservedBitsToFixedHeaderControlPacketType($byte1)
     {
         return $byte1;
-    }
-
-    /**
-     * @param int $startIndex
-     * @param string $rawInput
-     * @return string
-     */
-    protected static function getPayloadLengthPrefixFieldInRawInput($startIndex, $rawInput)
-    {
-        $headerLength = 2;
-        $header = substr($rawInput, $startIndex, $headerLength);
-        $lengthOfMessage = ord($header{1});
-
-        return substr($rawInput, $startIndex + $headerLength, $lengthOfMessage);
     }
 }

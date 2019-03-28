@@ -12,6 +12,10 @@ use oliverlorenz\reactphpmqtt\protocol\Violation as ProtocolViolation;
 
 class Factory
 {
+    static $rawData = '';
+    static $packetLength = 0;
+
+
     /**
      * @param Version $version
      * @param string $remainingData
@@ -21,42 +25,91 @@ class Factory
     public static function getNextPacket(Version $version, $remainingData)
     {
         while(isset($remainingData{1})) {
-            $remainingLength = ord($remainingData{1});
-            $packetLength = 2 + $remainingLength;
+            if (static::$rawData) {
+                static::$rawData .= $remainingData;
+
+                if (strlen(static::$rawData) < static::$packetLength){
+                    $remainingData = '';
+                    continue;
+                }
+                $remainingData  = static::$rawData;
+                $packetLength   = static::$packetLength;
+            }
+            else {
+                $offset = 1;
+                $remainingLength = static::getLength($remainingData, $offset);
+                $packetLength = $offset + $remainingLength;
+            }
+            
             $nextPacketData = substr($remainingData, 0, $packetLength);
             $remainingData = substr($remainingData, $packetLength);
 
-            yield self::getByMessage($version, $nextPacketData);
+            static::$rawData        = $nextPacketData;
+            static::$packetLength   = $packetLength;
+            if (strlen($nextPacketData) < $packetLength) {
+                continue;
+            }
+            
+            $nextPacketData = static::$rawData;
+            static::$rawData = '';
+
+            yield self::getPacketByMessage($version, $nextPacketData);
         }
     }
 
-    private static function getByMessage(Version $version, $input)
+    protected static function getPacketByMessage(Version $version, $input)
     {
         $controlPacketType = ord($input{0}) >> 4;
-
+        
         switch ($controlPacketType) {
             case ConnectionAck::getControlPacketType():
-                return ConnectionAck::parse($version, $input);
+                return ConnectionAck::parsePacket($version, $input);
 
             case PingResponse::getControlPacketType():
-                return PingResponse::parse($version, $input);
+                return PingResponse::parsePacket($version, $input);
 
             case SubscribeAck::getControlPacketType():
-                return SubscribeAck::parse($version, $input);
+                return SubscribeAck::parsePacket($version, $input);
 
             case Publish::getControlPacketType():
-                return Publish::parse($version, $input);
+                return Publish::parsePacket($version, $input);
 
             case PublishComplete::getControlPacketType():
-                return PublishComplete::parse($version, $input);
+                return PublishComplete::parsePacket($version, $input);
 
             case PublishRelease::getControlPacketType():
-                return PublishRelease::parse($version, $input);
+                return PublishRelease::parsePacket($version, $input);
 
             case PublishReceived::getControlPacketType():
-                return PublishReceived::parse($version, $input);
+                return PublishReceived::parsePacket($version, $input);
         }
 
         throw new ProtocolViolation('Unexpected packet type: ' . $controlPacketType);
+    }
+    
+    /**
+     * Calculate length of packet
+     * @param string $remainingData
+     * @param int $offset
+     * @return int length
+     * @throws type
+     */
+    protected static function getLength(string $remainingData, int &$offset) : int
+    {
+       $multiplier = 1;
+       $value = 0;
+       $offset = 1;
+
+       do{
+            $encodedByte = ord($remainingData{$offset});
+            $offset ++;
+            $value += ($encodedByte & 0x7F) * $multiplier;
+            $multiplier *= 0x80;
+            if ($multiplier > 128*128*128){
+               throw \RuntimeException('Malformed Remaining Length');
+            }
+
+       }while (($encodedByte & 0x80) != 0);
+       return $value;
     }
 }

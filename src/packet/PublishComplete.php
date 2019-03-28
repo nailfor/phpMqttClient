@@ -11,7 +11,9 @@ namespace oliverlorenz\reactphpmqtt\packet;
  * The PUBCOMP Packet is the response to a PUBREL Packet.
  * It is the fourth and final packet of the QoS 2 protocol exchange.
  */
-class PublishComplete extends ControlPacket {
+class PublishComplete extends ControlPacket 
+{
+    const EVENT = 'PUBLISH_COMPLETE';
 
     public static function getControlPacketType()
     {

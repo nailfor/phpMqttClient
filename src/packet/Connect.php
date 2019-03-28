@@ -54,28 +54,18 @@ class Connect extends ControlPacket {
      * @param null $willRetain
      * @param int $keepAlive
      */
-    public function __construct(
-        Version $version,
-        $username = null,
-        $password = null,
-        $clientId = null,
-        $cleanSession = true,
-        $willTopic = null,
-        $willMessage = null,
-        $willQos = null,
-        $willRetain = null,
-        $keepAlive = 0
-    ) {
+    public function __construct(Version $version, ConnectionOptions $options) {
         parent::__construct($version);
-        $this->clientId = $clientId;
-        $this->username = $username;
-        $this->password = $password;
-        $this->cleanSession = boolval($cleanSession);
-        $this->willTopic = $willTopic;
-        $this->willMessage = $willMessage;
-        $this->willQos = boolval($willQos);
-        $this->willRetain = $willRetain;
-        $this->keepAlive = $keepAlive;
+        
+        $this->clientId = $options->clientId;
+        $this->username = $options->username;
+        $this->password = $options->password;
+        $this->cleanSession = boolval($options->cleanSession);
+        $this->willTopic = $options->willTopic;
+        $this->willMessage = $options->willMessage;
+        $this->willQos = boolval($options->willQos);
+        $this->willRetain = $options->willRetain;
+        $this->keepAlive = $options->keepAlive;
         $this->buildPayload();
     }
 
