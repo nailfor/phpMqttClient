@@ -1,5 +1,5 @@
 {
-    "name": "oliverlorenz/php-mqtt-client",
+    "name": "nailfor/phpMqttClient",
     "description": "a mqtt client library for php",
     "keywords": ["mqtt", "IoT"],
     "license": "LGPL",
@@ -7,6 +7,9 @@
         {
             "name": "Oliver Lorenz",
             "email": "mail@oliverlorenz.com"
+        },
+        {
+            "name": "Nailfor"
         }
     ],
     "autoload": {
