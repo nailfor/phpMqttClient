@@ -19,4 +19,33 @@ class PublishReceived extends ControlPacket
     {
         return ControlPacketType::PUBREC;
     }
+
+    /**
+     * @param $messageId
+     * @return $this
+     */
+    public function setMessageId($messageId)
+    {
+        $this->messageId = $messageId;
+        return $this;
+    }
+
+    /**
+     * @return $messageId
+     */
+    public function getMessageId()
+    {
+        return $this->messageId;
+    }
+
+    /**
+     * @return string
+     */
+    protected function getVariableHeader()
+    {
+        $str = '  ';
+        $str{0} = chr($this->messageId >> 8);
+        $str{1} = chr($this->messageId & 0xFF);
+        return $str;
+    }
 }

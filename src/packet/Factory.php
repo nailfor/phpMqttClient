@@ -40,7 +40,7 @@ class Factory
                 $remainingLength = static::getLength($remainingData, $offset);
                 $packetLength = $offset + $remainingLength;
             }
-            
+
             $nextPacketData = substr($remainingData, 0, $packetLength);
             $remainingData = substr($remainingData, $packetLength);
 
@@ -49,8 +49,11 @@ class Factory
             if (strlen($nextPacketData) < $packetLength) {
                 continue;
             }
-            
+
             $nextPacketData = static::$rawData;
+            //echo "len: $packetLength\n";
+            //echo MessageHelper::getReadableByRawString($nextPacketData);
+
             static::$rawData = '';
 
             yield self::getPacketByMessage($version, $nextPacketData);
@@ -60,7 +63,7 @@ class Factory
     protected static function getPacketByMessage(Version $version, $input)
     {
         $controlPacketType = ord($input{0}) >> 4;
-        
+
         switch ($controlPacketType) {
             case ConnectionAck::getControlPacketType():
                 return ConnectionAck::parsePacket($version, $input);
@@ -86,7 +89,7 @@ class Factory
 
         throw new ProtocolViolation('Unexpected packet type: ' . $controlPacketType);
     }
-    
+
     /**
      * Calculate length of packet
      * @param string $remainingData
