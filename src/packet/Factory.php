@@ -105,7 +105,7 @@ class Factory
             $offset ++;
             $value += ($encodedByte & 0x7F) * $multiplier;
             $multiplier *= 0x80;
-            if ($multiplier > 128*128*128){
+            if ($multiplier > 128*128*128*128){
                throw \RuntimeException('Malformed Remaining Length');
             }
 
