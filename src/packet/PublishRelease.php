@@ -14,9 +14,38 @@ namespace oliverlorenz\reactphpmqtt\packet;
 class PublishRelease extends ControlPacket
 {
     const EVENT = 'PUBLISH_RELEASE';
+    protected $messageId;
 
     public static function getControlPacketType()
     {
         return ControlPacketType::PUBREL;
     }
+
+    /**
+     * @return $messageId
+     */
+    public function getMessageId()
+    {
+        return $this->messageId;
+    }
+
+    public function parse()
+    {
+        $idintifier = substr($this->rawData, 2, 2);
+
+        $this->messageId =  $this->getInteger($idintifier);
+
+        return $this;
+    }
+
+    protected function getInteger(string $data) : int
+    {
+        if (isset($data{1})) {
+            $m = ord($data{0})<<8;
+            $l = ord($data{1});
+            return $m + $l;
+        }
+        return 0;
+    }
+
 }

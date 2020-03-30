@@ -26,7 +26,7 @@ class Publish extends ControlPacket
     protected $dup = false;
 
     protected $retain = false;
-    
+
     protected $offset;
 
     public static function getControlPacketType()
@@ -37,7 +37,7 @@ class Publish extends ControlPacket
     public function parse()
     {
         $this->parseOffset();
-        
+
         $byte1 = $this->rawData{0};
         if (!empty($byte1)) {
             $byte1 = ord($byte1);
@@ -49,7 +49,7 @@ class Publish extends ControlPacket
             }
             $this->setDup(($byte1 & 8) === 8);
         }
-        
+
         $this->parseTopic();
         $this->parsePayload();
         return $this;
@@ -63,8 +63,8 @@ class Publish extends ControlPacket
             $offset++;
         }while(($encodedByte & 0x80) != 0);
         $this->offset = $offset;
-    }    
-    
+    }
+
     protected function getInteger(string $data) : int
     {
         if (isset($data{1})) {
@@ -74,27 +74,27 @@ class Publish extends ControlPacket
         }
         return 0;
     }
-    
+
     /**
      * @param string $rawInput
      * @return string
      */
     protected function parseTopic()
     {
-        
+
         $headerLength = 2;
         $header = substr($this->rawData, $this->offset, $headerLength);
         $topicLength = $this->getInteger($header);
-        
+
         $this->topic = substr($this->rawData, $this->offset + $headerLength, $topicLength);
-    }    
-    
-    protected function parsePayload() 
+    }
+
+    protected function parsePayload()
     {
         $idlen = 0;
         if ($this->qos) {
             $idlen = 2;
-            
+
             $idintifier = substr(
                 $this->rawData,
                 2 + strlen($this->topic) + $this->offset,
@@ -102,13 +102,13 @@ class Publish extends ControlPacket
             );
 
             $this->messageId =  $this->getInteger($idintifier);
-        } 
+        }
         $this->payload = substr(
             $this->rawData,
             2 + strlen($this->topic) + $idlen + $this->offset
-        );        
-    }    
-    
+        );
+    }
+
     /**
      * @param $topic
      * @return $this
@@ -136,8 +136,8 @@ class Publish extends ControlPacket
     {
         return $this->messageId;
     }
-    
-    
+
+
     /**
      * @param int $qos 0,1,2
      * @return $this

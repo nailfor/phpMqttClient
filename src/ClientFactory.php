@@ -6,6 +6,9 @@ use protocol\Version;
 use oliverlorenz\reactphpmqtt\protocol\Version4;
 use oliverlorenz\reactphpmqtt\packet\Publish;
 use oliverlorenz\reactphpmqtt\packet\PublishAck;
+use oliverlorenz\reactphpmqtt\packet\PublishReceived;
+use oliverlorenz\reactphpmqtt\packet\PublishRelease;
+use oliverlorenz\reactphpmqtt\packet\PublishComplete;
 
 use React\Dns\Resolver\Factory as DnsResolverFactory;
 use React\EventLoop\Factory as EventLoopFactory;
@@ -18,7 +21,7 @@ class ClientFactory
     public static $client;
     public static $connection;
     protected static $version;
-    
+
     protected static function setClient(string $url, array $options = [], Version $version = null, string $resolverIp = '8.8.8.8') {
         $loop = EventLoopFactory::create();
         $connector = self::createDnsConnector($resolverIp, $loop);
@@ -27,10 +30,10 @@ class ClientFactory
             $version = new Version4();
         }
         static::$version = $version;
-        
+
         static::$client =  new MqttClient($url, $loop, $connector, $version, $options);
     }
-    
+
     protected static function setTopics($topics)
     {
         $version = static::$version;
@@ -38,41 +41,63 @@ class ClientFactory
             static::$connection->then(function($stream) use ($topic, $params, $version) {
                 $events = $params['events'] ?? [];
                 foreach ($events as $event => $closure){
-                    $stream->on("$event:$topic", $closure);
+                    //$stream->on("$event:$topic", $closure);
+                    $stream->on("$event", $closure);
                 }
-                
+
                 $clear = $params['clear'] ?? true;
                 if ($clear) {
-                    $stream->on(Publish::EVENT.":$topic", function(Publish $message) use ($stream, $version) {
-                        if ($message->getQos() == 1) {
-                            $id = $message->getMessageId();
+                    $stream->on(Publish::EVENT, function(Publish $message) use ($stream, $version) {
+                        switch ($message->getQos()) {
+                            case 1:
+                                $id = $message->getMessageId();
 
-                            $packet = new PublishAck($version);
-                            $packet->setMessageId($id);
-                            $message = $packet->get();
+                                $packet = new PublishAck($version);
+                                $packet->setMessageId($id);
+                                $message = $packet->get();
 
-                            $stream->write($message);            
+                                $stream->write($message);
+                                break;
+                            case 2:
+                                $id = $message->getMessageId();
+
+                                $packet = new PublishReceived($version);
+                                $packet->setMessageId($id);
+                                $message = $packet->get();
+
+                                $stream->write($message);
+                                break;
                         }
                     });
+                    $stream->on(PublishRelease::EVENT, function(PublishRelease $message) use ($stream, $version) {
+                        $id = $message->getMessageId();
+
+                        $packet = new PublishComplete($version);
+                        $packet->setMessageId($id);
+                        $message = $packet->get();
+
+                        $stream->write($message);
+
+                    });
                 }
-                
+
                 ClientFactory::$client->subscribe($stream, $topic, $params['qos'] ?? 0);
             });
-            
+
         }
     }
-    
+
     public static function run(string $url, array $options = [], $errorClosure = null, Version $version = null, $resolverIp = '')
     {
         static::setClient($url, $options, $version, $resolverIp);
-        
+
         static::$connection = static::$client->connect();
         if ($errorClosure) {
             static::$connection->then(null, $errorClosure);
         }
-        
+
         static::setTopics($options['topics'] ?? []);
-        
+
         $loop = static::$client->getLoop();
         $loop->run();
     }

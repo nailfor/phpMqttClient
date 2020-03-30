@@ -17,7 +17,7 @@ abstract class ControlPacket {
     protected $payload = '';
 
     protected $identifier;
-    
+
     public $rawData = '';
 
     public function __construct(Version $version)
@@ -38,7 +38,7 @@ abstract class ControlPacket {
     public static function parsePacket(Version $version, $rawInput)
     {
         static::checkRawInputValidControlPackageType($rawInput);
-        
+
         $packet = new static($version);
         $packet->rawData = $rawInput;
         $packet->parse();

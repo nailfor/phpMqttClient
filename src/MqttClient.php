@@ -65,7 +65,7 @@ class MqttClient
      *
      * @return PromiseInterface Resolves to a \React\Stream\Stream once a connection has been established
      */
-    public function connect() 
+    public function connect()
     {
         // Set default connection options, if none provided
         $options = $this->options;
@@ -93,7 +93,7 @@ class MqttClient
                     $event = $packet::EVENT;
                     if (method_exists($packet, 'getTopic')) {
                         $topic = $packet->getTopic();
-                        $event .= ":$topic";
+                        //$event .= ":$topic";
                     }
                     //echo $event."\n";
                     $stream->emit($event, [$packet]);
@@ -125,8 +125,6 @@ class MqttClient
      */
     public function sendConnectPacket(Connection $stream, ConnectionOptions $options) {
         $packet = new Connect($this->version, $options);
-        //$message = $packet->get();
-        //echo MessageHelper::getReadableByRawString($message);
 
         $deferred = new Deferred();
         $stream->on(ConnectionAck::EVENT, function($message) use ($stream, $deferred) {
@@ -140,7 +138,6 @@ class MqttClient
 
     private function sendPacketToStream(Connection $stream, ControlPacket $controlPacket)
     {
-        //echo "send:\t\t" . get_class($controlPacket) . "\n";
         $message = $controlPacket->get();
         return $stream->write($message);
     }
